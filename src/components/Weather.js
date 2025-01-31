@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-// import axios from 'axios';
 import '../index.css';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-
 
 const Weather = () => {
   const [weatherData, setWeatherData] = useState(null);
@@ -24,33 +22,28 @@ const Weather = () => {
       if (city === '') return;
       
       setLoading(true);
+      setError(null);
 
       try {
         const response = await fetch(`${baseURL}?q=${city}&appid=${apiKey}&units=metric`);
         const data = await response.json();
         if (response.ok) {
-          console.log('Weather data:', data); // Debugging statement
           setWeatherData(data);
 
-          // Fetch detailed weather data using the forecast endpoint
           const detailedResponse = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${data.coord.lat}&lon=${data.coord.lon}&appid=${apiKey}&units=metric`);
           const detailedData = await detailedResponse.json();
           if (detailedResponse.ok) {
-            console.log('Detailed weather data:', detailedData); // Debugging statement
             setDetailedWeatherData(detailedData);
           } else {
-            console.error('Error fetching detailed weather data:', detailedData);
             setDetailedWeatherData(null);
           }
         } else {
-          console.error('Error fetching weather data:', data);
           setWeatherData(null);
           setDetailedWeatherData(null);
           setError('Error fetching weather data, City not found');
         }
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching weather data:', error);
         setLoading(false);
         setError('Error fetching weather data, City not found');
         setWeatherData(null);
@@ -63,22 +56,19 @@ const Weather = () => {
 
   const handleCityChange = async (event) => {
     const inputValue = event.target.value;
-    console.log('City input:', inputValue); // Debugging statement
     setCity(inputValue);
+    setError(null);
     
     if (inputValue.length > 2) {
       try {
         const response = await fetch(`${searchURL}?q=${inputValue}&appid=${apiKey}&units=metric`);
         const data = await response.json();
         if (response.ok) {
-          console.log('Suggestions:', data.list); // Debugging statement
           setSuggestions(data.list);
         } else {
-          console.error('Error fetching suggestions:', data);
           setSuggestions([]);
         }
       } catch (error) {
-        console.error('Error fetching suggestions:', error);
         setSuggestions([]);
       }
     } else {
@@ -124,16 +114,26 @@ const Weather = () => {
 
   return (
     <div className="Weather-Cont">
-      {/* Background Video */}
-      <video
-        className="background-video"
-        autoPlay
-        loop
-        muted
-        src={getBackgroundVideo()}
-      ></video>
+      <video className="background-video" autoPlay loop muted src={getBackgroundVideo()}></video>
 
-      <div className="weather-content">
+      <div className="weather-forecast">
+        <h2>Weather Forecast</h2>
+        <div className="forecast-scroll">
+          {detailedWeatherData && detailedWeatherData.list && (
+            <ul>
+              {detailedWeatherData.list.slice(0, 24).map((hour, index) => (
+                <li key={index} className="forecast-item">
+                  <span>{new Date(hour.dt * 1000).getHours()}:00</span>
+                  <span>{hour.main.temp}°C</span>
+                  <span>{hour.weather[0].description}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="weather-info">
         <input
           type="text"
           placeholder="Enter Your City"
@@ -141,79 +141,51 @@ const Weather = () => {
           onChange={handleCityChange}
           onKeyDown={handleKeyDown}
         />
-        
-        {error && <div className="error-message">{error}</div>}
-        {loading && <div className="loading-message">Loading...</div>}
-        
-        {/* Display suggestions */}
+
         {suggestions.length > 0 && (
           <ul className="suggestions-list">
             {suggestions.map((suggestion, index) => (
-              <li
-                key={index}
-                className={index === activeSuggestionIndex ? 'active' : ''}
-                onClick={() => handleSuggestionClick(suggestion)}
-              >
+              <li key={index} className={index === activeSuggestionIndex ? 'active' : ''} onClick={() => handleSuggestionClick(suggestion)}>
                 {suggestion.name}, {suggestion.sys.country}
               </li>
             ))}
           </ul>
         )}
 
-        {/* Display weather data */}
+        {error && <div className="error-message">{error}</div>}
+        {loading && <div className="loading-message">Loading...</div>}
+
         {weatherData ? (
-          <div>
-            <h1>
-              {weatherData.name}, {weatherData.sys.country}
-            </h1>
+          <div className="basic-weather">
+            <h1>{weatherData.name}, {weatherData.sys.country}</h1>
             <p>{weatherData.weather[0].description}</p>
-            <p>{weatherData.main.temp}°C</p>
-
-            {/* Map */}
-          <MapContainer
-            center={[weatherData.coord.lat, weatherData.coord.lon]} // Coordinates from weatherData
-            zoom={10}
-            style={{ width: '100%', height: '400px' }} // Customize map dimensions
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" // Tile layer from OpenStreetMap
-            />
-            <Marker
-              position={[weatherData.coord.lat, weatherData.coord.lon]}
-              icon={L.icon({ iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/ec/Red_dot.svg', iconSize: [15, 15] })}
-            >
-              <Popup>
-                {weatherData.name}, {weatherData.sys.country}
-              </Popup>
-            </Marker>
-          </MapContainer>
-
-            {/* Detailed Weather Information */}
-            {detailedWeatherData && detailedWeatherData.list && (
-              <div className="detailed-weather">
-                <div className="weather-info">
-                  <h2>Weather Information</h2>
-                  <p>Feels Like: {detailedWeatherData.list[0].main.feels_like}°C</p>
-                  <p>Humidity: {detailedWeatherData.list[0].main.humidity}%</p>
-                  <p>Wind Speed: {detailedWeatherData.list[0].wind.speed} m/s</p>
-                  <p>Wind Direction: {detailedWeatherData.list[0].wind.deg}°</p>
-                  <p>UV Index: {detailedWeatherData.list[0].uvi}</p>
-                </div>
-                <div className="weather-forecast">
-                  <h2>Weather Forecast</h2>
-                  <ul>
-                    {detailedWeatherData.list.slice(0, 24).map((hour, index) => (
-                      <li key={index}>
-                        {new Date(hour.dt * 1000).getHours()}:00 - {hour.main.temp}°C, {hour.weather[0].description}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
+            <p className="temp">{weatherData.main.temp}°C</p>
           </div>
         ) : (
           <p>Start typing a city...</p>
+        )}
+      </div>
+
+      <div className="detailed-weather">
+        {detailedWeatherData && detailedWeatherData.list && (
+          <>
+            <h2>Weather Details</h2>
+            <p>Feels Like: {detailedWeatherData.list[0].main.feels_like}°C</p>
+            <p>Humidity: {detailedWeatherData.list[0].main.humidity}%</p>
+            <p>Wind Speed: {detailedWeatherData.list[0].wind.speed} m/s</p>
+            <p>Wind Direction: {detailedWeatherData.list[0].wind.deg}°</p>
+          </>
+        )}
+      </div>
+
+      <div className="map-container">
+        {weatherData && (
+          <MapContainer center={[weatherData.coord.lat, weatherData.coord.lon]} zoom={10} style={{ width: '100%', height: '100%', borderRadius: '10px' }}>
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <Marker position={[weatherData.coord.lat, weatherData.coord.lon]} icon={L.icon({ iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/ec/Red_dot.svg', iconSize: [15, 15] })}>
+              <Popup>{weatherData.name}, {weatherData.sys.country}</Popup>
+            </Marker>
+          </MapContainer>
         )}
       </div>
     </div>
